@@ -84,9 +84,6 @@ class PromiseFuncWrap:
 			thread.is_alive()
 		): pass
 
-		# if hasattr(thread, "_finally") and not hasattr(thread, "_finally_completed"):
-		# 	thread._finally()
-
 		if hasattr(thread, "_callback_res"): return thread._callback_res
 		if hasattr(thread, "_callback_err"): raise thread._callback_err
 		if hasattr(thread, "_catch_res"): return thread._catch_res
@@ -129,9 +126,6 @@ class Promise:
 			(not hasattr(thread, "_catch_err")) and
 			thread.is_alive()
 		): pass
-
-		# if hasattr(thread, "_finally") and not hasattr(thread, "_finally_completed"):
-		# 	thread._finally()
 
 		if hasattr(thread, "_callback_res"): return resolve(thread._callback_res)
 		if hasattr(thread, "_callback_err"): raise reject(thread._callback_err)

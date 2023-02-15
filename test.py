@@ -4,7 +4,6 @@ from promiseapi import PromiseFuncWrap, Promise
 
 def myfunc():
 	raise RuntimeError("uh oh")
-	return "Hello, World!"
 
 def myfunc2():
 	return "Hello Again!"
@@ -18,7 +17,6 @@ PromiseFuncWrap(myfunc) \
 		lambda res: print(f"The callback function for myfunc() returned {res!r}"),
 		lambda err: print(f"The callback function failed too!!! Error: {err}")
 	)
-
 
 PromiseFuncWrap(myfunc2) \
 	.then(
@@ -49,8 +47,6 @@ Promise(my_promise_executor) \
 	.catch(lambda err: (print(f"An error occurred: {type(err).__name__}: {err}"), 1234)[1]) \
 	._finally(lambda: print("All done!")) \
 	.then(lambda res: print(f"This should be the return value of the previous `then` or 'catch' statement: {res}"))
-
-# BUG: the above 'finally' statement exectues twice
 
 Promise(super_fast_promise) \
 	.then(lambda res: print(f"This executes first - {res}"))
