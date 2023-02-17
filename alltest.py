@@ -8,3 +8,7 @@ promise4 = Promise.all([promise1, promise2]).then(
 	lambda res: print(res),
 	lambda err: print(err)
 )
+
+promise5 = Promise.allSettled([promise1, promise2, promise3]).then(
+	lambda res: print(res)
+)
