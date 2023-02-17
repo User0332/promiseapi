@@ -1,5 +1,9 @@
 from types import FunctionType
+from typing_extensions import TypeVar
 import threading
+
+PromiseType = TypeVar("PromiseType", bound="Promise")
+PromiseFuncWrapType = TypeVar("PromiseFuncWrapType", bound="PromiseFuncWrap")
 
 class CallbackThread(threading.Thread):
 	def add_callback(self, callback: FunctionType=None, catch: FunctionType=None, final: FunctionType=None):
@@ -93,6 +97,65 @@ class PromiseFuncWrap:
 		
 		return thread._err
 
+	def __all_handler(promises: list[PromiseFuncWrapType]):
+		vals = []
+
+		while 1:
+			if not promises: break
+			for promise in promises.copy():
+				if hasattr(promise.thread, "_res"):
+					vals.append(promise.thread._res)
+					promises.remove(promise)
+					continue
+
+				if hasattr(promise.thread, "_err"):
+					raise promise.thread._err
+
+		return vals
+
+	def __all_settled_handler(promises: list[PromiseType]):
+		vals = []
+
+		while 1:
+			if not promises: break
+			for promise in promises.copy():
+				if hasattr(promise.thread, "_res"):
+					vals.append("fulfilled")
+					promises.remove(promise)
+					continue
+
+				if hasattr(promise.thread, "_err"):
+					vals.append("rejected")
+					promises.remove(promise)
+					continue
+
+		return vals
+
+	def __any_handler(resolve: FunctionType, reject: FunctionType, promises: list[PromiseType]):
+		reasons = []
+
+		while 1:
+			if not promises: break
+			for promise in promises.copy():
+				if hasattr(promise.thread, "_res"):
+					return promise.thread._res
+
+				if hasattr(promise.thread, "_err"):
+					reasons.append(promise.thread._err)
+					promises.remove(promise)
+					continue
+
+		raise Exception(reasons)
+
+	def __race_handler(resolve: FunctionType, reject: FunctionType, promises: list[PromiseType]):
+		while 1:
+			for promise in promises.copy():
+				if hasattr(promise.thread, "_res"):
+					return promise.thread._res
+
+				if hasattr(promise.thread, "_err"):
+					raise promise.thread._err
+
 	def then(self, accept: FunctionType=None, reject: FunctionType=None):
 		self.thread.add_callback(accept, reject)
 
@@ -105,6 +168,26 @@ class PromiseFuncWrap:
 		self.thread.add_callback(final=final)
 
 		return self
+
+	def all(promises: list[PromiseFuncWrapType]):
+		return PromiseFuncWrap(
+			lambda: PromiseFuncWrap.__all_handler(promises)
+		)
+
+	def allSettled(promises: list[PromiseFuncWrapType]):
+		return PromiseFuncWrap(
+			lambda: PromiseFuncWrap.__all_settled_handler(promises)
+		)
+
+	def any(promises: list[PromiseFuncWrapType]):
+		return PromiseFuncWrap(
+			lambda: PromiseFuncWrap.__any_handler(promises)
+		)
+
+	def race(promises: list[PromiseFuncWrapType]):
+		return PromiseFuncWrap(
+			lambda: PromiseFuncWrap.__race_handler(promises)
+		)
 
 class Promise:
 	def __init__(self, handler: FunctionType):
@@ -136,6 +219,65 @@ class Promise:
 		
 		return reject(thread._err)
 
+	def __all_handler(resolve: FunctionType, reject: FunctionType, promises: list[PromiseType]):
+		vals = []
+
+		while 1:
+			if not promises: break
+			for promise in promises.copy():
+				if hasattr(promise.thread, "_res"):
+					vals.append(promise.thread._res)
+					promises.remove(promise)
+					continue
+
+				if hasattr(promise.thread, "_err"):
+					return reject(promise.thread._err)
+
+		return resolve(vals)
+
+	def __all_settled_handler(resolve: FunctionType, reject: FunctionType, promises: list[PromiseType]):
+		vals = []
+
+		while 1:
+			if not promises: break
+			for promise in promises.copy():
+				if hasattr(promise.thread, "_res"):
+					vals.append("fulfilled")
+					promises.remove(promise)
+					continue
+
+				if hasattr(promise.thread, "_err"):
+					vals.append("rejected")
+					promises.remove(promise)
+					continue
+
+		return resolve(vals)
+
+	def __any_handler(resolve: FunctionType, reject: FunctionType, promises: list[PromiseType]):
+		reasons = []
+
+		while 1:
+			if not promises: break
+			for promise in promises.copy():
+				if hasattr(promise.thread, "_res"):
+					return resolve(promise.thread._res)
+
+				if hasattr(promise.thread, "_err"):
+					reasons.append(promise.thread._err)
+					promises.remove(promise)
+					continue
+
+		return reject(Exception(reasons))
+
+	def __race_handler(resolve: FunctionType, reject: FunctionType, promises: list[PromiseType]):
+		while 1:
+			for promise in promises.copy():
+				if hasattr(promise.thread, "_res"):
+					return resolve(promise.thread._res)
+
+				if hasattr(promise.thread, "_err"):
+					return reject(promise.thread._err)
+
 	def then(self, accept: FunctionType=None, reject: FunctionType=None):
 		self.thread.add_callback(accept, reject)
 
@@ -151,3 +293,27 @@ class Promise:
 		self.thread.add_callback(final=final)
 		
 		return self
+
+	def all(promises: list[PromiseType]):
+		return Promise(
+			lambda resolve, reject:
+			Promise.__all_handler(resolve, reject, promises)
+		)
+
+	def allSettled(promises: list[PromiseType]):
+		return Promise(
+			lambda resolve, reject:
+			Promise.__all_settled_handler(resolve, reject, promises)
+		)
+
+	def any(promises: list[PromiseType]):
+		return Promise(
+			lambda resolve, reject:
+			Promise.__any_handler(resolve, reject, promises)
+		)
+
+	def race(promises: list[PromiseType]):
+		return Promise(
+			lambda resolve, reject:
+			Promise.__race_handler(resolve, reject, promises)
+		)
