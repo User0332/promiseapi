@@ -1,14 +1,18 @@
 import time
-from types import FunctionType
-from promiseapi import PromiseFuncWrap, Promise
+from promiseapi import (
+	PromiseFuncWrap,
+	Promise,
+)
 
 def myfunc():
 	raise RuntimeError("uh oh")
 
+	return "value"
+
 def myfunc2():
 	return "Hello Again!"
 
-PromiseFuncWrap(myfunc) \
+PromiseFuncWrap[str](myfunc) \
 	.then(
 		lambda res: print(f"Succeeded: {res}"),
 		lambda err: print(f"Failed: {type(err).__name__}: {err}")
@@ -18,7 +22,7 @@ PromiseFuncWrap(myfunc) \
 		lambda err: print(f"The callback function failed too!!! Error: {err}")
 	)
 
-PromiseFuncWrap(myfunc2) \
+PromiseFuncWrap[str](myfunc2) \
 	.then(
 		lambda res: 8/0,
 		lambda err: print(f"Failed: {type(err).__name__}: {err}")
@@ -28,7 +32,7 @@ PromiseFuncWrap(myfunc2) \
 		lambda err: print(f"The callback function failed! {type(err).__name__}: {err}")
 	)
 
-def my_promise_executor(resolve: FunctionType, reject: FunctionType):
+def my_promise_executor(resolve: Promise.Resolver[bool], reject: Promise.Rejecter):
 	a = 5
 	b = 4
 
@@ -37,10 +41,10 @@ def my_promise_executor(resolve: FunctionType, reject: FunctionType):
 	elif a == b: reject(RuntimeError("A and B are the same!"))
 	else: resolve(False)
 
-def super_fast_promise(resolve: FunctionType, reject: FunctionType):
+def super_fast_promise(resolve: Promise.Resolver, reject: Promise.Rejecter):
 	resolve("cool!")
 
-Promise(my_promise_executor) \
+Promise[str](my_promise_executor) \
 	.then(
 		lambda res: (print(f"A > B: {res}"), 123)[1],
 	) \
@@ -48,8 +52,8 @@ Promise(my_promise_executor) \
 	._finally(lambda: print("All done!")) \
 	.then(lambda res: print(f"This should be the return value of the previous `then` or 'catch' statement: {res}"))
 
-Promise(super_fast_promise) \
+Promise[str](super_fast_promise) \
 	.then(lambda res: print(f"This executes first - {res}"))
 
-Promise(super_fast_promise) \
+Promise[str](super_fast_promise) \
 	._finally(lambda: print("All done with super fast promise (for the second time!"))

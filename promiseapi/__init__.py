@@ -1,9 +1,14 @@
 from types import FunctionType
+from typing import Generic, Callable, Any, Union, NoReturn
 from typing_extensions import TypeVar
 import threading
 
+# TYPEHINT THIS WHOLE LIBRARY WITH GENERICS AND CALLABLE[[t], t]
+
 PromiseType = TypeVar("PromiseType", bound="Promise")
 PromiseFuncWrapType = TypeVar("PromiseFuncWrapType", bound="PromiseFuncWrap")
+PromiseReturnType = TypeVar("PromiseReturnType")
+ResolverArgType = TypeVar("ResolverArgType")
 
 class CallbackThread(threading.Thread):
 	def add_callback(self, callback: FunctionType=None, catch: FunctionType=None, final: FunctionType=None):
@@ -72,8 +77,7 @@ class CallbackThread_NotFuncWrap(CallbackThread):
 
 			self._ran = True
 
-
-class PromiseFuncWrap:
+class PromiseFuncWrap(Generic[PromiseReturnType]):
 	def __init__(self, func: FunctionType):
 		self.func = func
 		self.thread = CallbackThread(target=func)
@@ -156,15 +160,15 @@ class PromiseFuncWrap:
 				if hasattr(promise.thread, "_err"):
 					raise promise.thread._err
 
-	def then(self, accept: FunctionType=None, reject: FunctionType=None):
+	def then(self, accept: Callable[[PromiseReturnType], Union[Any, None]]=None, reject: Callable[[Exception], Union[Any, None]]=None):
 		self.thread.add_callback(accept, reject)
 
 		return PromiseFuncWrap(lambda: PromiseFuncWrap.__callback_resolver(self.thread))
 
-	def catch(self, callback: FunctionType):
+	def catch(self, callback: Callable[[Exception], Union[Any, None]]):
 		return self.then(None, callback)
 
-	def _finally(self, final: FunctionType):
+	def _finally(self, final: Callable[[], Union[Any, None]]):
 		self.thread.add_callback(final=final)
 
 		return self
@@ -189,7 +193,14 @@ class PromiseFuncWrap:
 			lambda: PromiseFuncWrap.__race_handler(promises)
 		)
 
-class Promise:
+class Promise(Generic[PromiseReturnType]):
+	class Rejecter:
+		def __call__(self, err: Exception) -> NoReturn: pass
+
+	class Resolver(Generic[ResolverArgType]):
+		def __call__(self, val: ResolverArgType) -> NoReturn: pass
+
+
 	def __init__(self, handler: FunctionType):
 		self.handler = handler
 		self.thread = CallbackThread_NotFuncWrap(target=handler, args=(self.__resolve, self.__reject))
@@ -278,7 +289,7 @@ class Promise:
 				if hasattr(promise.thread, "_err"):
 					return reject(promise.thread._err)
 
-	def then(self, accept: FunctionType=None, reject: FunctionType=None):
+	def then(self, accept: Callable[[PromiseReturnType], Union[Any, None]]=None, reject: Callable[[Exception], Union[Any, None]]=None):
 		self.thread.add_callback(accept, reject)
 
 		return Promise(
@@ -286,10 +297,10 @@ class Promise:
 			(Promise.__callback_resolver(resolve, reject, self.thread))
 		)
 
-	def catch(self, callback: FunctionType):
+	def catch(self, callback: Callable[[Exception], Union[Any, None]]):
 		return self.then(None, callback)
 
-	def _finally(self, final: FunctionType):
+	def _finally(self, final: Callable[[], Union[Any, None]]):
 		self.thread.add_callback(final=final)
 		
 		return self
